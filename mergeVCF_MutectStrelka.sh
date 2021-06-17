@@ -80,4 +80,10 @@ gatk --java-options "-Xmx24G" LeftAlignAndTrimVariants \
 vt decompose -s ${results}/HKNPC_090_merged_leftalignandtrim.vcf -o ${results}/HKNPC_090_merged_leftalignandtrim.decomposed.vcf
 #vt decompose -s /workspace/somatic/exome.merged.leftalignandtrim.vcf -o /workspace/somatic/exome.merged.leftalignandtrim.decomposed.vcf
 
+#Basic Filtering on Somatic Variants
+java -Xmx24g -jar /home/yabili/miniconda3/envs/bioinfo/opt/gatk-3.8/GenomeAnalysisTK.jar -T SelectVariants\
+    -R ${reference}\
+    --excludeFiltered --variant ${results}/HKNPC_090_merged_leftalignandtrim.decomposed.vcf\
+    -o ${results}/HKNPC_090.merged.norm.pass_only.vcf
+
 echo "****************************FINISHED*******************************"
