@@ -1,2 +1,7 @@
 results/
 test/
+.nextflow.log*
+*.yml
+work/
+.nextflow/
+
