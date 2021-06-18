@@ -4,4 +4,4 @@ test/
 *.yml
 work/
 .nextflow/
-
+conda2singularity
