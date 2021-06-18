@@ -20,7 +20,7 @@ def helpMessage() {
      nextflow mergeVCF_MutectStrelka.nf --strelka_snv path/to/strelka_snv --strelka_indels path/to/strelka_indels --mutect path/to/mutect --tumor_id mutectTumorName  --normal_id mutectNormalName   -with-report report.html
      Mandatory arguments:
      --strelka_snv      [path/to/strelka_snv]
-     --strelka_indels   [path/to/strelka_indelsu]
+     --strelka_indels   [path/to/strelka_indels]
      --mutect           [path/to/mutect]
      --tumor_id         [mutectTumorName]
      --normal_id        [mutectNormalName]
@@ -31,6 +31,20 @@ if (params.help) exit 0, helpMessage()
 
 
 params.reference="/home/yabili/storage/references/gatk_bundle/reference/resources_broad_hg38_v0_Homo_sapiens_assembly38.fasta"
+params.input_tsv=""
+
+Channel
+    .fromPath(params.input_tsv)
+    .splitCsv(header:true, sep:'\t')
+    .map{ row-> tuple(file(row.strelka_snvs), file(row.strelka_indels), file(row.mutect), row.tumor_id , row.normal_id , row.set_name) }
+    .set { samples_ch }
+
+samples_ch.into {samples_ch1; samples_ch2; samples_ch3; samples_ch4 }
+
+//ricordarsi di aggiungere un conda env tra le configuration
+
+
+/*
 params.strelka_snv="/home/yabili/yussab/mergeVCF_MutectStrelka/test/HKNPC-076T_vs_HKNPC-076N/Strelka/StrelkaBP_HKNPC-076T_vs_HKNPC-076N_somatic_snvs.vcf.gz"
 params.strelka_indels="/home/yabili/yussab/mergeVCF_MutectStrelka/test/HKNPC-076T_vs_HKNPC-076N/Strelka/StrelkaBP_HKNPC-076T_vs_HKNPC-076N_somatic_indels.vcf.gz"
 params.mutect="/home/yabili/yussab/mergeVCF_MutectStrelka/test/HKNPC-076T_vs_HKNPC-076N/Mutect2/Mutect2_filtered_HKNPC-076T_vs_HKNPC-076N.vcf.gz"
@@ -48,6 +62,8 @@ Channel.fromPath( params.strelka_indels, checkIfExists:true )
 
 Channel.fromPath(params.mutect, checkIfExists:true )
             .set{mutect_ch}
+*/
+
 
 
 process illuminaMerge_snvIndels {
@@ -55,9 +71,10 @@ process illuminaMerge_snvIndels {
     publishDir "${params.outdir}/illuminaMerge_snvIndels", mode:'copy'
  
     input:
-    file (strelka_snv) from  strelka_snv_ch
-    file (strelka_indels) from strelka_indels_ch
-  
+    // file (strelka_snv) from  strelka_snv_ch
+    // file (strelka_indels) from strelka_indels_ch
+    set file(strelka_snv), file(strelka_indels), file(mutect), tumor_id , normal_id , set_name from samples_ch1
+
     output:
     set file("${strelka_indels.simpleName}.snvs_indels.vcf.gz"), file("${strelka_indels.simpleName}.snvs_indels.vcf.gz.tbi" ) into illuminamerge_ch
     
@@ -73,7 +90,6 @@ process illuminaMerge_snvIndels {
     tabix  !{strelka_indels.simpleName}.indels.gt.vcf.gz
     bcftools concat -a -o  !{strelka_indels.simpleName}.snvs_indels.vcf.gz  -O z  !{strelka_snv.simpleName}.snvs.gt.vcf.gz  !{strelka_indels.simpleName}.indels.gt.vcf.gz
     tabix  !{strelka_indels.simpleName}.snvs_indels.vcf.gz
-    
     '''
 }
 
@@ -84,7 +100,8 @@ process mutect_preprocess {
  
 
     input:
-    file (mutect) from mutect_ch
+    // file (mutect) from mutect_ch
+    set file(strelka_snv), file(strelka_indels), file(mutect), tumor_id , normal_id , set_name from samples_ch2
 
     output:
     file("${mutect.simpleName}_wgs.vcf") into mutectprocessed_ch
@@ -101,8 +118,8 @@ process mutect_preprocess {
     tabix   !{mutect.simpleName}_wgs.vcf.gz
     gunzip  !{mutect.simpleName}_wgs.vcf.gz
 
-    sed -i 's/!{params.normal_id}/NORMAL/' !{mutect.simpleName}_wgs.vcf   #create a variable for Normal sample
-    sed -i 's/!{params.tumor_id}/TUMOR/' !{mutect.simpleName}_wgs.vcf     #create a variable for Tumor sample
+    sed -i 's/!{normal_id}/NORMAL/' !{mutect.simpleName}_wgs.vcf   #create a variable for Normal sample
+    sed -i 's/!{tumor_id}/TUMOR/' !{mutect.simpleName}_wgs.vcf     #create a variable for Tumor sample
     '''
 } 
 
@@ -112,11 +129,12 @@ process combineVCF {
     publishDir "${params.outdir}/combineVCF", mode:'copy'
  
     input:
+    set file(strelka_snv), file(strelka_indels), file(mutect), tumor_id , normal_id , set_name from samples_ch3
     file (mutect) from mutectprocessed_ch
     set file (strelka), file(tbi) from illuminamerge_ch
 
     output:
-    set file("${params.set_name}_merged.vcf.gz"), file("${params.set_name}_merged.vcf.gz.tbi") into combinevcf_ch
+    set file("${set_name}_merged.vcf.gz"), file("${set_name}_merged.vcf.gz.tbi") into combinevcf_ch
 
     script:
     """
@@ -126,7 +144,7 @@ process combineVCF {
 	--rod_priority_list mutect,strelka \
 	--variant:strelka ${strelka[0]} \
 	--variant:mutect ${mutect}  \
-	-o ${params.set_name}_merged.vcf.gz
+	-o ${set_name}_merged.vcf.gz
 
     """
 }
@@ -138,9 +156,11 @@ process dataNormalization {
  
     input:
     set file(merged), file(tbi)  from combinevcf_ch
+    set file(strelka_snv), file(strelka_indels), file(mutect), tumor_id , normal_id , set_name from samples_ch4
+
     
     output:
-    file("${params.set_name}_merged.norm.pass_only.vcf") into normalized_ch
+    file("${set_name}_merged.norm.pass_only.vcf") into normalized_ch
 
     script:
     """
@@ -154,7 +174,7 @@ process dataNormalization {
     java -Xmx24g -jar /home/yabili/miniconda3/envs/bioinfo/opt/gatk-3.8/GenomeAnalysisTK.jar -T SelectVariants\
         -R ${params.reference}\
         --excludeFiltered --variant merged_leftalignandtrim.decomposed.vcf\
-        -o ${params.set_name}_merged.norm.pass_only.vcf
+        -o ${set_name}_merged.norm.pass_only.vcf
     """
 }
 
