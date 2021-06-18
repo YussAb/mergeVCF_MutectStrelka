@@ -1,0 +1,2 @@
+strelka_snvs	strelka_indels	mutect	tumor_id	normal_id	set_name
+/home/yabili/yussab/mergeVCF_MutectStrelka/test/HKNPC-076T_vs_HKNPC-076N/Strelka/StrelkaBP_HKNPC-076T_vs_HKNPC-076N_somatic_snvs.vcf.gz	/home/yabili/yussab/mergeVCF_MutectStrelka/test/HKNPC-076T_vs_HKNPC-076N/Strelka/StrelkaBP_HKNPC-076T_vs_HKNPC-076N_somatic_indels.vcf.gz	/home/yabili/yussab/mergeVCF_MutectStrelka/test/HKNPC-076T_vs_HKNPC-076N/Mutect2/Mutect2_filtered_HKNPC-076T_vs_HKNPC-076N.vcf.gz	HKNPC-076T	HKNPC-076N	HKNPC-076
