@@ -29,10 +29,6 @@ def helpMessage() {
  
 if (params.help) exit 0, helpMessage()
 
-
-params.reference="/home/yabili/storage/references/gatk_bundle/reference/resources_broad_hg38_v0_Homo_sapiens_assembly38.fasta"
-params.input_tsv=""
-
 Channel
     .fromPath(params.input_tsv)
     .splitCsv(header:true, sep:'\t')
@@ -67,7 +63,6 @@ Channel.fromPath(params.mutect, checkIfExists:true )
 
 
 process illuminaMerge_snvIndels {
-    conda '/home/yabili/yussab/mergeVCF_MutectStrelka/nextflow.yml' 
     publishDir "${params.outdir}/illuminaMerge_snvIndels", mode:'copy'
  
     input:
@@ -95,7 +90,6 @@ process illuminaMerge_snvIndels {
 
 
 process mutect_preprocess {
-    conda '/home/yabili/yussab/mergeVCF_MutectStrelka/nextflow.yml' 
     publishDir "${params.outdir}/mutect_preprocess", mode:'copy'
  
 
@@ -125,7 +119,6 @@ process mutect_preprocess {
 
 
 process combineVCF {
-    conda '/home/yabili/miniconda3/envs/bioinfo' 
     publishDir "${params.outdir}/combineVCF", mode:'copy'
  
     input:
@@ -138,7 +131,7 @@ process combineVCF {
 
     script:
     """
-    java -Xmx24g -jar /home/yabili/miniconda3/envs/bioinfo/opt/gatk-3.8/GenomeAnalysisTK.jar -T CombineVariants \
+    gatk3  -T CombineVariants \
 	-R ${params.reference} \
 	-genotypeMergeOptions PRIORITIZE \
 	--rod_priority_list mutect,strelka \
@@ -151,7 +144,6 @@ process combineVCF {
 
 
 process dataNormalization {
-    conda '/home/yabili/miniconda3/envs/bioinfo' 
     publishDir "${params.outdir}/dataNormalizedfinal", mode:'copy'
  
     input:
@@ -171,7 +163,7 @@ process dataNormalization {
 
     vt decompose -s merged_leftalignandtrim.vcf -o merged_leftalignandtrim.decomposed.vcf
  
-    java -Xmx24g -jar /home/yabili/miniconda3/envs/bioinfo/opt/gatk-3.8/GenomeAnalysisTK.jar -T SelectVariants\
+    gatk3 -T SelectVariants\
         -R ${params.reference}\
         --excludeFiltered --variant merged_leftalignandtrim.decomposed.vcf\
         -o ${set_name}_merged.norm.pass_only.vcf
